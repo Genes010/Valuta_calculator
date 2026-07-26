@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#174E43">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Koers">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Koers — valuta omrekenen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E7EAE4;--panel:#FCFCFA;--ink:#191B17;--muted:#6B6F68;--faint:#9AA096;
+    --accent:#174E43;--accent-soft:#E3EDE9;--hair:#D3D7CD;--amber:#9A6410;
+    --amber-soft:#F3EAD8;--shadow:0 1px 2px rgba(25,27,23,.04),0 12px 40px -18px rgba(25,27,23,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;min-height:100vh;display:flex;align-items:center;
+    justify-content:center;padding:28px 20px;line-height:1.5}
+  .card{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--hair);
+    border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+  header{padding:26px 28px 20px;border-bottom:1px solid var(--hair);display:flex;
+    align-items:baseline;justify-content:space-between;gap:12px}
+  .title{font-weight:600;font-size:1.05rem;letter-spacing:-.01em}
+  .title .dot{color:var(--accent)}
+  .status{font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--faint);
+    letter-spacing:.02em;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .pip{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none;transition:background .3s}
+  .pip.live{background:var(--accent)}
+  .pip.pulse{animation:pulse .9s ease-out}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(23,78,67,.45)}100%{box-shadow:0 0 0 7px rgba(23,78,67,0)}}
+  .body{padding:22px 28px 8px}
+  .row{border:1px solid var(--hair);border-radius:12px;padding:14px 16px;display:flex;
+    align-items:center;gap:14px;transition:border-color .15s,box-shadow .15s}
+  .row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px}
+  .picker{flex:none;min-width:0}
+  .picker select{appearance:none;-webkit-appearance:none;border:none;background:transparent;
+    font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1.15rem;color:var(--ink);
+    padding:2px 22px 2px 0;cursor:pointer;outline:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6F68' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right center}
+  .cur-name{font-size:.68rem;color:var(--faint);margin-top:2px;max-width:150px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .amt{flex:1;min-width:0;text-align:right}
+  .amt input{width:100%;border:none;background:transparent;outline:none;text-align:right;
+    font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:1.5rem;color:var(--ink);padding:0}
+  .amt input::placeholder{color:var(--faint)}
+  .swap{display:flex;justify-content:center;margin:-9px 0;position:relative;z-index:2}
+  .swap button{width:38px;height:38px;border-radius:50%;border:1px solid var(--hair);
+    background:var(--panel);color:var(--accent);cursor:pointer;display:grid;place-items:center;
+    transition:transform .35s cubic-bezier(.4,1.3,.5,1),background .15s,border-color .15s}
+  .swap button:hover{background:var(--accent-soft);border-color:var(--accent)}
+  .swap button:active{transform:rotate(180deg) scale(.94)}
+  .swap button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .swap.turn button{transform:rotate(180deg)}
+  .result-row{margin-top:6px;border:1px solid var(--hair);border-radius:12px;padding:16px;
+    background:linear-gradient(180deg,#FBFCFA,#F4F6F1);display:flex;align-items:center;gap:14px}
+  .out{flex:1;text-align:right;font-family:"IBM Plex Mono",monospace;font-weight:600;
+    font-size:2rem;letter-spacing:-.01em;color:var(--ink);min-width:0;overflow:hidden;
+    text-overflow:ellipsis;transition:opacity .18s}
+  .result-row.loading .out{opacity:.35}
+  .meta{padding:16px 28px 24px;display:flex;flex-direction:column;gap:4px}
+  .rate-line{font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--ink)}
+  .rate-line .rate{color:var(--accent);font-weight:500}
+  .sub{font-size:.72rem;color:var(--muted)}
+  .sub a{color:var(--muted)}
+  .note{margin-top:8px;font-size:.72rem;color:var(--amber);background:var(--amber-soft);
+    border-radius:8px;padding:8px 10px;display:none}
+  .note.show{display:block}
+  .banner{margin:0 28px 20px;font-size:.76rem;line-height:1.45;color:#7A4A12;
+    background:var(--amber-soft);border-radius:10px;padding:11px 13px;display:none}
+  .banner.show{display:block}
+  .banner b{color:#5E3A0E}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+  <main class="card" role="application" aria-label="Valuta omrekenen">
+    <header>
+      <div class="title">Koers<span class="dot">.</span></div>
+      <div class="status"><span class="pip" id="pip"></span><span id="statusText">laden…</span></div>
+    </header>
+    <div class="body">
+      <div class="row">
+        <div class="picker">
+          <div class="lbl">Van</div>
+          <select id="fromSel" aria-label="Van valuta"></select>
+          <div class="cur-name" id="fromName"></div>
+        </div>
+        <div class="amt">
+          <label class="lbl" for="amount" style="display:block">Bedrag</label>
+          <input id="amount" type="text" inputmode="decimal" value="4500" aria-label="Bedrag">
+        </div>
+      </div>
+      <div class="swap" id="swapWrap">
+        <button id="swap" aria-label="Wissel valuta om" title="Wissel om">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 3v10M4 3L1.5 5.5M4 3l2.5 2.5M12 13V3M12 13l2.5-2.5M12 13l-2.5-2.5"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="result-row" id="resultRow">
+        <div class="picker">
+          <div class="lbl">Naar</div>
+          <select id="toSel" aria-label="Naar valuta"></select>
+          <div class="cur-name" id="toName"></div>
+        </div>
+        <div class="out" id="output" aria-live="polite">—</div>
+      </div>
+    </div>
+    <div class="banner" id="banner"></div>
+    <div class="meta">
+      <div class="rate-line" id="rateLine">&nbsp;</div>
+      <div class="sub" id="updated">&nbsp;</div>
+      <div class="note" id="weekendNote">Let op: de ECB publiceert koersen alleen op werkdagen rond 16:00 CET. In het weekend zie je de laatste koers van vrijdag.</div>
+      <div class="sub" style="margin-top:10px">Bron: Europese Centrale Bank via <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a></div>
+    </div>
+  </main>
+<script>
+// Ingebouwde valutalijst (ECB-set) — zodat de keuzemenu's ALTIJD werken,
+// ook als de API even onbereikbaar is.
+const FALLBACK = {
+  AUD:"Australische dollar",BGN:"Bulgaarse lev",BRL:"Braziliaanse real",CAD:"Canadese dollar",
+  CHF:"Zwitserse frank",CNY:"Chinese yuan",CZK:"Tsjechische kroon",DKK:"Deense kroon",
+  EUR:"Euro",GBP:"Britse pond",HKD:"Hongkongse dollar",HUF:"Hongaarse forint",
+  IDR:"Indonesische roepia",ILS:"Israëlische sjekel",INR:"Indiase roepie",ISK:"IJslandse kroon",
+  JPY:"Japanse yen",KRW:"Zuid-Koreaanse won",MXN:"Mexicaanse peso",MYR:"Maleisische ringgit",
+  NOK:"Noorse kroon",NZD:"Nieuw-Zeelandse dollar",PHP:"Filipijnse peso",PLN:"Poolse zloty",
+  RON:"Roemeense leu",SEK:"Zweedse kroon",SGD:"Singaporese dollar",THB:"Thaise baht",
+  TRY:"Turkse lira",USD:"Amerikaanse dollar",ZAR:"Zuid-Afrikaanse rand"
+};
+// Meerdere endpoints — als de één geblokkeerd is, probeer de volgende.
+const HOSTS = ["https://api.frankfurter.dev/v1","https://api.frankfurter.app/v1"];
+
+const el = id => document.getElementById(id);
+const fmtCache = {};
+let currencies = {}, rates = {}, rateDate = null, apiOk = false;
+
+function nfFor(cur){
+  if(!fmtCache[cur]){
+    try{fmtCache[cur]=new Intl.NumberFormat("nl-NL",{style:"currency",currency:cur,maximumFractionDigits:2});}
+    catch(e){fmtCache[cur]=new Intl.NumberFormat("nl-NL",{maximumFractionDigits:2});}
+  }
+  return fmtCache[cur];
+}
+function parseAmount(s){
+  if(!s) return NaN;
+  return parseFloat(s.replace(/\s/g,"").replace(/\.(?=\d{3}\b)/g,"").replace(",","."));
+}
+function setStatus(t,live){el("statusText").textContent=t;el("pip").classList.toggle("live",!!live);}
+function pulse(){const p=el("pip");p.classList.remove("pulse");void p.offsetWidth;p.classList.add("pulse");}
+function showBanner(html){el("banner").innerHTML=html;el("banner").classList.add("show");}
+
+// Probeer elk endpoint tot er één werkt.
+async function apiGet(path){
+  let lastErr;
+  for(const host of HOSTS){
+    try{
+      const r = await fetch(host+path,{mode:"cors"});
+      if(r.ok) return await r.json();
+      lastErr = new Error(host+" "+r.status);
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error("geen endpoint bereikbaar");
+}
+
+async function loadRates(base){
+  if(rates[base]) return;
+  const data = await apiGet("/latest?base="+encodeURIComponent(base));
+  rates[base] = data.rates; rates[base][base] = 1; rateDate = data.date;
+}
+
+function fillSelects(){
+  const codes = Object.keys(currencies).sort();
+  const opts = codes.map(c=>`<option value="${c}">${c}</option>`).join("");
+  el("fromSel").innerHTML = opts; el("toSel").innerHTML = opts;
+  if(currencies.KRW) el("fromSel").value="KRW";
+  if(currencies.EUR) el("toSel").value="EUR";
+  updateNames();
+}
+function updateNames(){
+  el("fromName").textContent = currencies[el("fromSel").value]||"";
+  el("toName").textContent = currencies[el("toSel").value]||"";
+}
+function relDate(d){
+  if(!d) return "";
+  return new Date(d+"T16:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"});
+}
+
+async function convert(){
+  const from=el("fromSel").value, to=el("toSel").value, amt=parseAmount(el("amount").value);
+  if(!from||!to) return;
+  el("resultRow").classList.add("loading");
+  try{
+    await loadRates(from);
+    apiOk = true; setStatus("live",true);
+    el("banner").classList.remove("show");
+    if(isNaN(amt)){el("output").textContent="—";el("rateLine").innerHTML="&nbsp;";return;}
+    const rate = rates[from][to];
+    el("output").textContent = nfFor(to).format(amt*rate);
+    const rateStr = rate>=1 ? rate.toLocaleString("nl-NL",{maximumFractionDigits:4}) : rate.toPrecision(4);
+    el("rateLine").innerHTML = `1 ${from} = <span class="rate">${rateStr} ${to}</span>`;
+    el("updated").textContent = "Koers van "+relDate(rateDate);
+    pulse();
+  }catch(err){
+    setStatus("offline",false);
+    el("output").textContent="—"; el("rateLine").innerHTML="&nbsp;";
+    el("updated").textContent="";
+    showBanner('<b>Geen verbinding met de koers-API.</b> De valutalijst werkt wel, maar omrekenen lukt pas met internettoegang. Werkt dit binnen de chat-preview niet? <b>Download het bestand en open het in je browser</b> — dan werkt het meestal wél.');
+  }finally{
+    el("resultRow").classList.remove("loading");
+  }
+}
+
+el("amount").addEventListener("input",()=>{clearTimeout(window._d);window._d=setTimeout(convert,200);});
+el("fromSel").addEventListener("change",()=>{updateNames();convert();});
+el("toSel").addEventListener("change",()=>{updateNames();convert();});
+el("swap").addEventListener("click",()=>{
+  const f=el("fromSel").value,t=el("toSel").value;
+  el("fromSel").value=t;el("toSel").value=f;
+  el("swapWrap").classList.toggle("turn");updateNames();convert();
+});
+
+async function init(){
+  setStatus("laden…",false);
+  // 1) Vul de menu's METEEN met de ingebouwde lijst — nooit meer leeg.
+  currencies = {...FALLBACK};
+  fillSelects();
+  if([0,6].includes(new Date().getDay())) el("weekendNote").classList.add("show");
+  // 2) Probeer de live namenlijst op te halen (optioneel, verbetert alleen labels).
+  try{
+    const live = await apiGet("/currencies");
+    if(live && Object.keys(live).length){ currencies = live; fillSelects(); }
+  }catch(e){ /* fallback blijft staan */ }
+  // 3) Reken om.
+  await convert();
+}
+init();
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
