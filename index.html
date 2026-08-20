@@ -146,6 +146,18 @@
   .rate-line .rate{color:var(--accent-soft);font-weight:500}
   .sub{font-size:.72rem;color:var(--text-muted)}
   .sub a{color:var(--accent-soft)}
+  .save-default{align-self:flex-start;margin-top:8px;display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--border-input);background:var(--bg-chip);color:var(--text-secondary);
+    border-radius:9px;padding:7px 12px;font-family:"Inter",sans-serif;font-size:.75rem;font-weight:500;
+    cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+  .save-default:hover{background:var(--bg-hover);border-color:var(--accent);color:var(--text-primary)}
+  .save-default:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .save-default .star{width:14px;height:14px;flex:none}
+  .save-default .star path{stroke:var(--text-muted);fill:none;transition:stroke .15s,fill .15s}
+  .save-default.is-default{color:var(--accent-soft);border-color:var(--accent)}
+  .save-default.is-default .star path{stroke:var(--accent);fill:var(--accent)}
+  .save-default.saved{color:var(--accent-soft);border-color:var(--accent)}
+  .save-default.saved .star path{stroke:var(--accent);fill:var(--accent)}
   .note{margin-top:8px;font-size:.72rem;color:var(--amber);background:var(--amber-bg);
     border:1px solid var(--amber-border);border-radius:8px;padding:8px 10px;display:none}
   .note.show{display:block}
@@ -226,6 +238,10 @@
     <div class="meta">
       <div class="rate-line" id="rateLine">&nbsp;</div>
       <div class="sub" id="updated">&nbsp;</div>
+      <button type="button" class="save-default" id="saveDefaultBtn" title="Bewaar dit valutapaar als startcombinatie">
+        <svg class="star" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.9l-3.8 2 .7-4.3-3.1-3 4.3-.6z" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        <span id="saveDefaultLabel">Als standaard instellen</span>
+      </button>
       <div class="note" id="weekendNote">Let op: de ECB publiceert koersen alleen op werkdagen rond 16:00 CET. In het weekend zie je de laatste koers van vrijdag.</div>
       <div class="sub" style="margin-top:10px">Bron: Europese Centrale Bank via <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter</a></div>
     </div>
@@ -318,13 +334,22 @@ function makePicker(key, getVal, setVal){
 }
 
 let fromPicker, toPicker;
-// Onthoud het gekozen valutapaar, zodat de app voortaan opent met JOUW
-// combinatie in plaats van altijd KRW → EUR.
-function saveDefault(){
-  try{ localStorage.setItem("koers-pair", JSON.stringify({from:fromCur,to:toCur})); }catch(e){}
+// Standaardpaar: alleen bewaard als je er zelf op klikt (knop hieronder),
+// zodat vrij wisselen je startcombinatie niet verandert.
+function getDefault(){
+  try{ return JSON.parse(localStorage.getItem("koers-pair")||"null"); }catch(e){ return null; }
 }
-function setFrom(c){ fromCur=c; syncPicker("from"); saveDefault(); convert(); }
-function setTo(c){ toCur=c; syncPicker("to"); saveDefault(); convert(); }
+function isDefaultPair(){
+  const d=getDefault(); return !!(d && d.from===fromCur && d.to===toCur);
+}
+function refreshDefaultBtn(){
+  const btn=el("saveDefaultBtn"); if(!btn) return;
+  const set=isDefaultPair();
+  btn.classList.toggle("is-default", set);
+  el("saveDefaultLabel").textContent = set ? "Standaard ingesteld" : "Als standaard instellen";
+}
+function setFrom(c){ fromCur=c; syncPicker("from"); refreshDefaultBtn(); convert(); }
+function setTo(c){ toCur=c; syncPicker("to"); refreshDefaultBtn(); convert(); }
 function syncPicker(key){
   const val = key==="from" ? fromCur : toCur;
   el(key+"Code").textContent = val;
@@ -402,10 +427,20 @@ themeToggle.addEventListener("click", ()=>{
   try{ localStorage.setItem("koers-theme", light ? "light" : "dark"); }catch(e){}
 });
 
+// Sla het huidige paar op als standaard (alleen op klik).
+el("saveDefaultBtn").addEventListener("click",()=>{
+  try{ localStorage.setItem("koers-pair", JSON.stringify({from:fromCur,to:toCur})); }catch(e){}
+  const btn=el("saveDefaultBtn");
+  el("saveDefaultLabel").textContent="Opgeslagen ✓";
+  btn.classList.add("saved");
+  clearTimeout(window._sd);
+  window._sd=setTimeout(()=>{ btn.classList.remove("saved"); refreshDefaultBtn(); },1600);
+});
+
 el("amount").addEventListener("input",()=>{clearTimeout(window._d);window._d=setTimeout(convert,200);});
 el("swap").addEventListener("click",()=>{
   const f=fromCur; fromCur=toCur; toCur=f;
-  syncPicker("from"); syncPicker("to"); saveDefault();
+  syncPicker("from"); syncPicker("to"); refreshDefaultBtn();
   el("swapWrap").classList.toggle("turn"); convert();
 });
 
@@ -423,7 +458,7 @@ async function init(){
   }catch(e){}
   if(!currencies[fromCur]) fromCur = currencies.KRW ? "KRW" : Object.keys(currencies)[0];
   if(!currencies[toCur])   toCur   = currencies.EUR ? "EUR" : Object.keys(currencies)[0];
-  syncPicker("from"); syncPicker("to");
+  syncPicker("from"); syncPicker("to"); refreshDefaultBtn();
   if([0,6].includes(new Date().getDay())) el("weekendNote").classList.add("show");
   // 2) Probeer de live namenlijst op te halen (verbetert alleen labels).
   try{
