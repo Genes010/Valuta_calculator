@@ -318,8 +318,13 @@ function makePicker(key, getVal, setVal){
 }
 
 let fromPicker, toPicker;
-function setFrom(c){ fromCur=c; syncPicker("from"); convert(); }
-function setTo(c){ toCur=c; syncPicker("to"); convert(); }
+// Onthoud het gekozen valutapaar, zodat de app voortaan opent met JOUW
+// combinatie in plaats van altijd KRW → EUR.
+function saveDefault(){
+  try{ localStorage.setItem("koers-pair", JSON.stringify({from:fromCur,to:toCur})); }catch(e){}
+}
+function setFrom(c){ fromCur=c; syncPicker("from"); saveDefault(); convert(); }
+function setTo(c){ toCur=c; syncPicker("to"); saveDefault(); convert(); }
 function syncPicker(key){
   const val = key==="from" ? fromCur : toCur;
   el(key+"Code").textContent = val;
@@ -400,7 +405,7 @@ themeToggle.addEventListener("click", ()=>{
 el("amount").addEventListener("input",()=>{clearTimeout(window._d);window._d=setTimeout(convert,200);});
 el("swap").addEventListener("click",()=>{
   const f=fromCur; fromCur=toCur; toCur=f;
-  syncPicker("from"); syncPicker("to");
+  syncPicker("from"); syncPicker("to"); saveDefault();
   el("swapWrap").classList.toggle("turn"); convert();
 });
 
@@ -410,6 +415,12 @@ async function init(){
   currencies = {...FALLBACK};
   fromPicker = makePicker("from", ()=>fromCur, setFrom);
   toPicker   = makePicker("to",   ()=>toCur,   setTo);
+  // Laad een eerder opgeslagen standaardpaar (valt anders terug op KRW → EUR).
+  try{
+    const saved = JSON.parse(localStorage.getItem("koers-pair")||"null");
+    if(saved && saved.from) fromCur = saved.from;
+    if(saved && saved.to)   toCur   = saved.to;
+  }catch(e){}
   if(!currencies[fromCur]) fromCur = currencies.KRW ? "KRW" : Object.keys(currencies)[0];
   if(!currencies[toCur])   toCur   = currencies.EUR ? "EUR" : Object.keys(currencies)[0];
   syncPicker("from"); syncPicker("to");
